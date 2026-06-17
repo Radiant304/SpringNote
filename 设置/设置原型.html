@@ -1418,91 +1418,106 @@
 
         <div
             id="providerModal"
-            class="modal fixed inset-0 z-50 items-center justify-center bg-slate-900/10"
+            class="modal fixed inset-0 z-50 items-center justify-center bg-slate-900/10 p-6"
         >
             <div
-                class="w-[640px] bg-white border border-slate-200 rounded-[24px] shadow-modal overflow-hidden"
+                class="w-[760px] max-w-[calc(100vw-48px)] bg-white border border-slate-200 rounded-[22px] shadow-modal overflow-hidden"
             >
-                <div
-                    class="h-14 px-5 border-b border-slate-100 flex items-center justify-between"
-                >
-                    <h2 class="text-[15px] font-semibold text-slate-900">
+                <div class="px-5 pt-4 pb-3 flex items-center justify-between">
+                    <h2 class="text-[18px] font-semibold text-slate-900 tracking-tight">
                         添加供应商
                     </h2>
                     <button
                         data-close-modal="providerModal"
-                        class="w-8 h-8 rounded-lg hover:bg-slate-50 flex items-center justify-center text-slate-400"
+                        class="w-8 h-8 rounded-xl hover:bg-slate-100 flex items-center justify-center text-slate-700"
+                        aria-label="关闭添加供应商弹窗"
                     >
-                        <i data-lucide="x" class="w-4 h-4"></i>
+                        <i data-lucide="x" class="w-5 h-5"></i>
                     </button>
                 </div>
-                <div class="p-5 space-y-4">
-                    <div class="flex gap-2">
+                <div class="px-5 pb-5">
+                    <div class="grid grid-cols-3 gap-4 mb-4">
                         <button
-                            class="h-8 px-3 rounded-full bg-slate-900 text-white text-xs"
+                            class="h-10 rounded-[12px] bg-[#d9d9db] text-[15px] font-medium text-slate-950"
                         >
                             OpenAI
                         </button>
                         <button
-                            class="h-8 px-3 rounded-full border border-slate-200 text-xs text-slate-600"
+                            class="h-10 rounded-[12px] text-[15px] font-medium text-slate-600 hover:bg-slate-50"
                         >
                             Google
                         </button>
                         <button
-                            class="h-8 px-3 rounded-full border border-slate-200 text-xs text-slate-600"
+                            class="h-10 rounded-[12px] text-[15px] font-medium text-slate-600 hover:bg-slate-50"
                         >
                             Claude
                         </button>
+                    </div>
+
+                    <div
+                        class="h-[58px] rounded-[14px] bg-[#f7f7f9] px-4 flex items-center justify-between mb-4"
+                    >
+                        <span class="text-[14px] font-normal text-slate-900">
+                            是否启用
+                        </span>
                         <button
-                            class="h-8 px-3 rounded-full border border-slate-200 text-xs text-slate-600"
+                            class="switch w-11 h-6 rounded-full bg-black relative transition-colors"
+                            aria-label="是否启用供应商"
                         >
-                            自定义兼容
+                            <span
+                                class="absolute right-0.5 top-0.5 w-5 h-5 rounded-full bg-white"
+                            ></span>
                         </button>
                     </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <label class="space-y-1">
-                            <span class="text-xs text-slate-500">名称</span>
+
+                    <div class="space-y-3.5">
+                        <label class="block">
+                            <span class="mb-1.5 block text-[13px] font-normal text-slate-600">
+                                名称
+                            </span>
                             <input
                                 value="OpenAI"
-                                class="w-full h-9 rounded-xl border border-slate-200 px-3 text-[13px] outline-none"
+                                class="w-full h-11 rounded-[12px] border border-slate-300 bg-[#f8f8fa] px-4 text-[15px] text-slate-900 outline-none focus:border-slate-400"
                             />
                         </label>
-                        <label class="space-y-1">
-                            <span class="text-xs text-slate-500">API 路径</span>
+                        <label class="block">
+                            <span class="mb-1.5 block text-[13px] font-normal text-slate-600">
+                                API Key
+                            </span>
                             <input
-                                value="/responses"
-                                class="w-full h-9 rounded-xl border border-slate-200 px-3 text-[13px] outline-none"
+                                type="password"
+                                class="w-full h-11 rounded-[12px] border border-slate-300 bg-[#f8f8fa] px-4 text-[15px] text-slate-900 outline-none focus:border-slate-400"
+                            />
+                        </label>
+                        <label class="block">
+                            <span class="mb-1.5 block text-[13px] font-normal text-slate-600">
+                                Base URL
+                            </span>
+                            <input
+                                value="https://api.openai.com/v1"
+                                class="w-full h-11 rounded-[12px] border border-slate-300 bg-[#f8f8fa] px-4 text-[15px] text-slate-900 outline-none focus:border-slate-400"
+                            />
+                        </label>
+                        <label class="block">
+                            <span class="mb-1.5 block text-[13px] font-normal text-slate-600">
+                                API 路径
+                            </span>
+                            <input
+                                value="/chat/completions"
+                                class="w-full h-11 rounded-[12px] border border-slate-300 bg-[#f8f8fa] px-4 text-[15px] text-slate-900 outline-none focus:border-slate-400"
                             />
                         </label>
                     </div>
-                    <label class="block space-y-1">
-                        <span class="text-xs text-slate-500">API Key</span>
-                        <input
-                            type="password"
-                            placeholder="sk-..."
-                            class="w-full h-9 rounded-xl border border-slate-200 px-3 text-[13px] outline-none"
-                        />
-                    </label>
-                    <label class="block space-y-1">
-                        <span class="text-xs text-slate-500">Base URL</span>
-                        <input
-                            value="https://api.openai.com/v1"
-                            class="w-full h-9 rounded-xl border border-slate-200 px-3 text-[13px] outline-none"
-                        />
-                    </label>
-                </div>
-                <div
-                    class="px-5 py-4 border-t border-slate-100 flex items-center justify-between"
-                >
-                    <span class="text-xs text-slate-400"
-                        >配置会即时保存到本地</span
-                    >
-                    <button
-                        data-close-modal="providerModal"
-                        class="h-9 px-4 rounded-xl bg-slate-900 text-white text-[13px] font-medium"
-                    >
-                        添加
-                    </button>
+
+                    <div class="mt-8 flex justify-end">
+                        <button
+                            data-close-modal="providerModal"
+                            class="h-11 px-4 rounded-[12px] bg-black text-white text-[15px] font-semibold flex items-center gap-2.5 hover:bg-slate-900"
+                        >
+                            <i data-lucide="plus" class="w-4 h-4"></i>
+                            添加
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
