@@ -858,6 +858,7 @@
                                                     <i data-lucide="atom" class="w-3.5 h-3.5"></i>
                                                 </button>
                                                 <button
+                                                    id="openModelModal"
                                                     class="w-7 h-7 rounded-lg hover:bg-slate-50 hover:text-slate-900 flex items-center justify-center"
                                                     aria-label="模型参数"
                                                 >
@@ -1550,6 +1551,140 @@
         </div>
 
         <div
+            id="modelModal"
+            class="modal fixed inset-0 z-50 items-center justify-center bg-slate-900/10 p-6"
+        >
+            <div
+                class="w-[760px] max-w-[calc(100vw-48px)] max-h-[calc(100vh-48px)] bg-white border border-slate-200 rounded-[22px] shadow-modal overflow-hidden flex flex-col"
+            >
+                <div class="px-5 pt-4 pb-3 flex items-center justify-between shrink-0">
+                    <h2 class="text-[18px] font-semibold text-slate-900 tracking-tight">
+                        编辑模型
+                    </h2>
+                    <button
+                        data-close-modal="modelModal"
+                        class="w-8 h-8 rounded-xl hover:bg-slate-100 flex items-center justify-center text-slate-700"
+                        aria-label="关闭编辑模型弹窗"
+                    >
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+
+                <div class="px-5 pb-5 overflow-y-auto no-scrollbar">
+                    <div
+                        class="rounded-[16px] border border-slate-300/80 bg-[#f8f8fa] p-4 mb-4"
+                    >
+                        <label class="block mb-3.5">
+                            <span class="mb-1.5 block text-[13px] font-normal text-slate-600">
+                                模型 ID
+                            </span>
+                            <div
+                                class="h-11 rounded-[12px] border border-slate-200 bg-white px-4 flex items-center gap-3"
+                            >
+                                <input
+                                    value="qwen/qwen3-1.7b"
+                                    readonly
+                                    class="flex-1 bg-transparent text-[15px] text-slate-400 outline-none cursor-default"
+                                    aria-label="模型 ID，不可修改"
+                                />
+                                <button
+                                    class="w-8 h-8 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-50 flex items-center justify-center"
+                                    aria-label="复制模型 ID"
+                                >
+                                    <i data-lucide="copy" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </label>
+
+                        <label class="block">
+                            <span class="mb-1.5 block text-[13px] font-normal text-slate-600">
+                                模型名称
+                            </span>
+                            <input
+                                value="qwen/qwen3-1.7b"
+                                class="w-full h-11 rounded-[12px] border border-slate-300 bg-white px-4 text-[15px] text-slate-900 outline-none focus:border-slate-400"
+                            />
+                        </label>
+                    </div>
+
+                    <div
+                        class="rounded-[16px] border border-slate-300/80 bg-[#f8f8fa] p-4"
+                    >
+                        <div class="mb-4">
+                            <div class="mb-2 text-[13px] font-normal text-slate-600">
+                                模型类型
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <button
+                                    class="model-option h-11 rounded-[12px] border border-slate-400 bg-[#d9d9db] text-[15px] font-semibold text-slate-950"
+                                    data-selected="true"
+                                >
+                                    聊天
+                                </button>
+                                <button
+                                    class="model-option h-11 rounded-[12px] border border-slate-300 bg-white text-[15px] font-semibold text-slate-600"
+                                    data-selected="false"
+                                >
+                                    补全
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <div class="mb-2 text-[13px] font-normal text-slate-600">
+                                输入模式
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <button
+                                    class="model-option h-11 rounded-[12px] border border-slate-400 bg-[#d9d9db] text-[15px] font-semibold text-slate-950"
+                                    data-selected="true"
+                                >
+                                    文本
+                                </button>
+                                <button
+                                    class="model-option h-11 rounded-[12px] border border-slate-300 bg-white text-[15px] font-semibold text-slate-600"
+                                    data-selected="false"
+                                >
+                                    图片
+                                </button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="mb-2 text-[13px] font-normal text-slate-600">
+                                能力
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <button
+                                    class="model-option h-11 rounded-[12px] border border-slate-400 bg-[#d9d9db] text-[15px] font-semibold text-slate-950"
+                                    data-selected="true"
+                                >
+                                    工具
+                                </button>
+                                <button
+                                    class="model-option h-11 rounded-[12px] border border-slate-300 bg-white text-[15px] font-semibold text-slate-600"
+                                    data-selected="false"
+                                >
+                                    推理
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-5 flex justify-end">
+                        <button
+                            data-close-modal="modelModal"
+                            class="h-11 px-4 rounded-[12px] bg-black text-white text-[15px] font-semibold flex items-center gap-2.5 hover:bg-slate-900"
+                        >
+                            <i data-lucide="check" class="w-4 h-4"></i>
+                            确认
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div
             id="dateModal"
             class="modal fixed inset-0 z-50 items-center justify-center bg-slate-900/10"
         >
@@ -1655,6 +1790,9 @@
                 .getElementById("openProviderModal")
                 .addEventListener("click", () => openModal("providerModal"));
             document
+                .getElementById("openModelModal")
+                .addEventListener("click", () => openModal("modelModal"));
+            document
                 .getElementById("openDateModal")
                 .addEventListener("click", () => openModal("dateModal"));
 
@@ -1662,6 +1800,16 @@
                 button.addEventListener("click", () =>
                     closeModal(button.dataset.closeModal),
                 );
+            });
+
+            document.querySelectorAll(".model-option").forEach((button) => {
+                button.addEventListener("click", () => {
+                    const selected = button.dataset.selected === "true";
+                    button.dataset.selected = String(!selected);
+                    button.className = !selected
+                        ? "model-option h-11 rounded-[12px] border border-slate-400 bg-[#d9d9db] text-[15px] font-semibold text-slate-950"
+                        : "model-option h-11 rounded-[12px] border border-slate-300 bg-white text-[15px] font-semibold text-slate-600";
+                });
             });
 
             document.querySelectorAll(".switch").forEach((button) => {
