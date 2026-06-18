@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 
@@ -739,88 +740,45 @@ class _ThinkingControl extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          '思考',
-          style: Theme.of(
-            context,
-          ).textTheme.bodySmall?.copyWith(color: AppTheme.textSubtle),
-        ),
-        const SizedBox(width: 6),
-        Switch.adaptive(
-          value: enabled,
-          onChanged: onEnabledChanged,
-          activeThumbColor: AppTheme.text,
-        ),
-        const SizedBox(width: 8),
-        AnimatedOpacity(
-          opacity: enabled ? 1 : 0.42,
-          duration: const Duration(milliseconds: 160),
-          child: IgnorePointer(
-            ignoring: !enabled,
-            child: Container(
-              height: 30,
-              padding: const EdgeInsets.all(3),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _EffortPill(
-                    label: 'High',
-                    selected: effort == 'high',
-                    onTap: () => onEffortChanged('high'),
-                  ),
-                  _EffortPill(
-                    label: 'Max',
-                    selected: effort == 'max',
-                    onTap: () => onEffortChanged('max'),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
+    final value = enabled ? effort : 'disabled';
+    final labelStyle = Theme.of(
+      context,
+    ).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w700, height: 1);
 
-class _EffortPill extends StatelessWidget {
-  const _EffortPill({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
+    return ClipRRect(
       borderRadius: BorderRadius.circular(999),
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-        decoration: BoxDecoration(
-          color: selected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Text(
-          label,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-            color: selected ? AppTheme.text : AppTheme.textSubtle,
-            fontWeight: FontWeight.w700,
+      child: CupertinoSlidingSegmentedControl<String>(
+        groupValue: value,
+        backgroundColor: const Color(0xFFF1F5F9),
+        thumbColor: Colors.white,
+        padding: const EdgeInsets.all(3),
+        children: {
+          'disabled': Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            child: Text('Disable', style: labelStyle),
           ),
-        ),
+          'high': Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            child: Text('High', style: labelStyle),
+          ),
+          'max': Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            child: Text('Max', style: labelStyle),
+          ),
+        },
+        onValueChanged: (next) {
+          if (next == null) {
+            return;
+          }
+          if (next == 'disabled') {
+            onEnabledChanged(false);
+            return;
+          }
+          if (!enabled) {
+            onEnabledChanged(true);
+          }
+          onEffortChanged(next);
+        },
       ),
     );
   }
@@ -1123,6 +1081,7 @@ class _ReasoningBlock extends StatefulWidget {
 
 class _ReasoningBlockState extends State<_ReasoningBlock> {
   late bool _expanded;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -1136,6 +1095,22 @@ class _ReasoningBlockState extends State<_ReasoningBlock> {
     if (!oldWidget.collapsed && widget.collapsed) {
       _expanded = false;
     }
+    if (_expanded &&
+        !widget.collapsed &&
+        widget.reasoning != oldWidget.reasoning) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!_scrollController.hasClients) {
+          return;
+        }
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -1181,24 +1156,40 @@ class _ReasoningBlockState extends State<_ReasoningBlock> {
               ],
             ),
           ),
-          AnimatedCrossFade(
-            firstChild: const SizedBox.shrink(),
-            secondChild: Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                widget.reasoning.trim(),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppTheme.textSubtle,
-                  height: 1.65,
-                ),
-              ),
-            ),
-            crossFadeState: _expanded
-                ? CrossFadeState.showSecond
-                : CrossFadeState.showFirst,
-            duration: const Duration(milliseconds: 160),
-          ),
+          if (_expanded) _buildReasoningBody(context),
         ],
+      ),
+    );
+  }
+
+  Widget _buildReasoningBody(BuildContext context) {
+    final style = Theme.of(
+      context,
+    ).textTheme.bodySmall?.copyWith(color: AppTheme.textSubtle, height: 1.65);
+    final text = Text(widget.reasoning.trim(), style: style);
+    final content = Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: text,
+    );
+
+    if (widget.collapsed) {
+      return content;
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: AnimatedSize(
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 118),
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            physics: const ClampingScrollPhysics(),
+            child: text,
+          ),
+        ),
       ),
     );
   }
