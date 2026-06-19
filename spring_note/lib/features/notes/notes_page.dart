@@ -8,6 +8,7 @@ import '../../core/models/note_file.dart';
 import '../../core/services/ai_client_service.dart';
 import '../../core/services/note_service.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/page_scaffold.dart';
 import 'markdown_preview.dart';
 
 class NotesPage extends StatefulWidget {
@@ -571,15 +572,7 @@ class _NotesSidebar extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              PopupMenuButton<NoteKind>(
-                tooltip: '切换日报/周报/月报',
-                icon: const Icon(Icons.more_horiz_rounded, size: 19),
-                onSelected: onKindChanged,
-                itemBuilder: (context) => [
-                  for (final item in NoteKind.values)
-                    PopupMenuItem(value: item, child: Text(item.label)),
-                ],
-              ),
+              _NotesKindMenuButton(kind: kind, onKindChanged: onKindChanged),
             ],
           ),
           const SizedBox(height: 16),
@@ -610,6 +603,319 @@ class _NotesSidebar extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _NotesKindMenuButton extends StatefulWidget {
+  const _NotesKindMenuButton({required this.kind, required this.onKindChanged});
+
+  final NoteKind kind;
+  final ValueChanged<NoteKind> onKindChanged;
+
+  @override
+  State<_NotesKindMenuButton> createState() => _NotesKindMenuButtonState();
+}
+
+class _NotesKindMenuButtonState extends State<_NotesKindMenuButton> {
+  final LayerLink _layerLink = LayerLink();
+  OverlayEntry? _overlayEntry;
+
+  bool get _open => _overlayEntry != null;
+
+  @override
+  void dispose() {
+    _removeOverlay(updateState: false);
+    super.dispose();
+  }
+
+  void _toggleOverlay() {
+    if (_open) {
+      _removeOverlay();
+    } else {
+      _showOverlay();
+    }
+  }
+
+  void _showOverlay() {
+    final overlay = Overlay.of(context);
+    _overlayEntry = OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: _removeOverlay,
+              child: const SizedBox.expand(),
+            ),
+          ),
+          CompositedTransformFollower(
+            link: _layerLink,
+            showWhenUnlinked: false,
+            targetAnchor: Alignment.bottomRight,
+            followerAnchor: Alignment.topRight,
+            offset: const Offset(0, 6),
+            child: _NotesKindMenuTransition(
+              child: _NotesKindMenu(
+                selectedKind: widget.kind,
+                onSelected: (kind) {
+                  _removeOverlay();
+                  if (kind != widget.kind) {
+                    widget.onKindChanged(kind);
+                  }
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    overlay.insert(_overlayEntry!);
+    setState(() {});
+  }
+
+  void _removeOverlay({bool updateState = true}) {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+    if (updateState && mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CompositedTransformTarget(
+      link: _layerLink,
+      child: SpringNoteIconButton(
+        tooltip: '切换日报/周报/月报',
+        icon: Icons.more_horiz,
+        onPressed: _toggleOverlay,
+      ),
+    );
+  }
+}
+
+class _NotesKindMenuTransition extends StatelessWidget {
+  const _NotesKindMenuTransition({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 140),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        return Opacity(opacity: value, child: child);
+      },
+      child: child,
+    );
+  }
+}
+
+class _NotesKindMenu extends StatefulWidget {
+  const _NotesKindMenu({required this.selectedKind, required this.onSelected});
+
+  final NoteKind selectedKind;
+  final ValueChanged<NoteKind> onSelected;
+
+  @override
+  State<_NotesKindMenu> createState() => _NotesKindMenuState();
+}
+
+class _NotesKindMenuState extends State<_NotesKindMenu> {
+  NoteKind? _hoveredKind;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        width: 190,
+        padding: const EdgeInsets.all(7),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: const Color(0xFFE8E8E8)),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x17171717),
+              blurRadius: 24,
+              offset: Offset(0, 10),
+            ),
+            BoxShadow(
+              color: Color(0x0A171717),
+              blurRadius: 4,
+              offset: Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(9, 5, 9, 6),
+              child: Text(
+                '切换笔记类型',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: AppTheme.textSubtle,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ),
+            SizedBox(
+              height: _NotesKindMenuItem.itemHeight * NoteKind.values.length,
+              child: Column(
+                children: [
+                  for (final kind in NoteKind.values)
+                    _NotesKindMenuItem(
+                      kind: kind,
+                      selected: kind == widget.selectedKind,
+                      hovered: kind == _hoveredKind,
+                      onHoverChanged: (hovered) {
+                        setState(() {
+                          if (hovered) {
+                            _hoveredKind = kind;
+                          } else if (_hoveredKind == kind) {
+                            _hoveredKind = null;
+                          }
+                        });
+                      },
+                      onTap: () => widget.onSelected(kind),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NotesKindMenuItem extends StatelessWidget {
+  const _NotesKindMenuItem({
+    required this.kind,
+    required this.selected,
+    required this.hovered,
+    required this.onHoverChanged,
+    required this.onTap,
+  });
+
+  final NoteKind kind;
+  final bool selected;
+  final bool hovered;
+  final ValueChanged<bool> onHoverChanged;
+  final VoidCallback onTap;
+
+  static const double itemHeight = 52;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = selected || hovered;
+    final backgroundColor = selected
+        ? const Color(0xFFE2E2E2)
+        : const Color(0xFFF5F5F5);
+    final contentColor = active ? AppTheme.text : AppTheme.textMuted;
+    final subtleColor = active ? AppTheme.textSubtle : const Color(0xFF8A8A8A);
+    final titleStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
+      color: contentColor,
+      fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+      height: 1.1,
+    );
+    final subtitleStyle = Theme.of(
+      context,
+    ).textTheme.labelSmall?.copyWith(color: subtleColor, height: 1.1);
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => onHoverChanged(true),
+      onExit: (_) => onHoverChanged(false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: SizedBox(
+          height: itemHeight,
+          child: Stack(
+            children: [
+              Positioned(
+                left: 0,
+                top: 0,
+                right: 0,
+                bottom: 4,
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 120),
+                  curve: Curves.easeOutCubic,
+                  opacity: active ? 1 : 0,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: backgroundColor,
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 0,
+                top: 0,
+                right: 0,
+                bottom: 4,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
+                    children: [
+                      Icon(
+                        _iconForKind(kind),
+                        size: 17,
+                        color: active ? AppTheme.text : AppTheme.textSubtle,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(kind.label, style: titleStyle),
+                            const SizedBox(height: 3),
+                            Text(
+                              _descriptionForKind(kind),
+                              style: subtitleStyle,
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (selected)
+                        const Icon(
+                          Icons.check_rounded,
+                          size: 16,
+                          color: AppTheme.text,
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  IconData _iconForKind(NoteKind kind) {
+    return switch (kind) {
+      NoteKind.daily => Icons.calendar_today_outlined,
+      NoteKind.weekly => Icons.view_week_outlined,
+      NoteKind.monthly => Icons.calendar_month_outlined,
+    };
+  }
+
+  String _descriptionForKind(NoteKind kind) {
+    return switch (kind) {
+      NoteKind.daily => '每日记录',
+      NoteKind.weekly => '阶段整理',
+      NoteKind.monthly => '月度沉淀',
+    };
   }
 }
 

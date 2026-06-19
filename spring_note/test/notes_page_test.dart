@@ -105,7 +105,7 @@ final value = 1;
     );
     await tester.pump();
 
-    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+    await tester.tap(find.byIcon(Icons.more_horiz));
     await tester.pumpAndSettle();
     await tester.tap(find.text('周报').last);
     await tester.pump();
