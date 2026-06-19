@@ -3640,17 +3640,16 @@ class _AddProviderDialogState extends State<_AddProviderDialog> {
         children: [
           Row(
             children: [
-              for (final template in ['OpenAI', 'Google', 'Claude'])
+              for (final template in ['OpenAI', 'Google', 'Claude']) ...[
                 Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(template),
-                      selected: _template == template,
-                      onSelected: (_) => _selectTemplate(template),
-                    ),
+                  child: _ProviderTemplateChip(
+                    label: template,
+                    selected: _template == template,
+                    onTap: () => _selectTemplate(template),
                   ),
                 ),
+                if (template != 'Claude') const SizedBox(width: 10),
+              ],
             ],
           ),
           const SizedBox(height: 16),
@@ -3689,6 +3688,84 @@ class _AddProviderDialogState extends State<_AddProviderDialog> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ProviderTemplateChip extends StatefulWidget {
+  const _ProviderTemplateChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  State<_ProviderTemplateChip> createState() => _ProviderTemplateChipState();
+}
+
+class _ProviderTemplateChipState extends State<_ProviderTemplateChip> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = widget.selected;
+    final active = selected || _hovered;
+    final backgroundColor = selected
+        ? const Color(0xFFE2E2E2)
+        : (_hovered ? const Color(0xFFF3F3F3) : Colors.white);
+    final borderColor = selected
+        ? const Color(0xFFCFCFCF)
+        : const Color(0xFFD5D5D5);
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 130),
+          curve: Curves.easeOutCubic,
+          height: 42,
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius: BorderRadius.circular(13),
+            border: Border.all(color: borderColor),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: 16,
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 120),
+                  curve: Curves.easeOutCubic,
+                  opacity: selected ? 1 : 0,
+                  child: const Icon(
+                    Icons.check_rounded,
+                    size: 16,
+                    color: AppTheme.text,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 7),
+              Text(
+                widget.label,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: active ? AppTheme.text : AppTheme.textSubtle,
+                  fontWeight: FontWeight.w700,
+                  height: 1,
+                ),
+              ),
+              const SizedBox(width: 23),
+            ],
+          ),
+        ),
       ),
     );
   }
