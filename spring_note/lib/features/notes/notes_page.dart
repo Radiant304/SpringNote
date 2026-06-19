@@ -431,22 +431,18 @@ class _NotesPageState extends State<NotesPage> {
             onNoteSelected: _selectNote,
           ),
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 24, 10, 24),
-              child: _EditorPane(
-                controller: _editorController,
-                focusNode: _editorFocusNode,
-                statusText: _editorStatusText,
-                enabled: selected != null && !_loading,
-                predicting: _predicting,
-              ),
+            flex: 32,
+            child: _EditorPane(
+              controller: _editorController,
+              focusNode: _editorFocusNode,
+              statusText: _editorStatusText,
+              enabled: selected != null && !_loading,
+              predicting: _predicting,
             ),
           ),
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(10, 24, 24, 24),
-              child: _PreviewPane(markdown: _editorController.text),
-            ),
+            flex: 32,
+            child: _PreviewPane(markdown: _editorController.text),
           ),
         ],
       ),
@@ -754,66 +750,144 @@ class _EditorPane extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const editorStyle = TextStyle(
-      color: AppTheme.text,
+      color: Color(0xFF334155),
       fontFamily: 'Consolas',
-      fontSize: 14,
+      fontSize: 13,
       height: 1.75,
     );
     return _PaneFrame(
+      headerPadding: const EdgeInsets.symmetric(horizontal: 32),
       header: Row(
         children: [
-          const Icon(Icons.code_rounded, size: 16, color: AppTheme.textSubtle),
-          const SizedBox(width: 8),
-          Text(
-            'Markdown Source · 源码编辑',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppTheme.textSubtle,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.8,
+          Expanded(
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.code_rounded,
+                  size: 15,
+                  color: Color(0xFF94A3B8),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    'Markdown Source · 源码编辑',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: const Color(0xFF94A3B8),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          const Spacer(),
-          Flexible(
-            child: Text(
-              statusText,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ),
+          const SizedBox(width: 12),
+          _EditorStatusPill(statusText: statusText),
         ],
       ),
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: TextField(
-              controller: controller,
-              focusNode: focusNode,
-              enabled: enabled,
-              expands: true,
-              maxLines: null,
-              minLines: null,
-              keyboardType: TextInputType.multiline,
-              decoration: const InputDecoration(
-                hintText: '# 开始编辑 Markdown...',
-                filled: true,
-                fillColor: Colors.white,
-                hoverColor: Colors.white,
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                disabledBorder: InputBorder.none,
-                contentPadding: EdgeInsets.fromLTRB(26, 24, 26, 24),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final sideInset = constraints.maxWidth > 720
+              ? (constraints.maxWidth - 720) / 2 + 40
+              : 40.0;
+
+          return Stack(
+            children: [
+              Positioned.fill(
+                child: TextField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  enabled: enabled,
+                  expands: true,
+                  maxLines: null,
+                  minLines: null,
+                  keyboardType: TextInputType.multiline,
+                  decoration: InputDecoration(
+                    hintText: '# 开始编辑 Markdown...',
+                    hintStyle: const TextStyle(color: Color(0xFFCBD5E1)),
+                    filled: true,
+                    fillColor: Colors.white,
+                    hoverColor: Colors.white,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    disabledBorder: InputBorder.none,
+                    contentPadding: EdgeInsets.fromLTRB(
+                      sideInset,
+                      32,
+                      sideInset,
+                      48,
+                    ),
+                  ),
+                  style: editorStyle,
+                ),
               ),
-              style: editorStyle,
+              if (predicting)
+                const Positioned(
+                  right: 24,
+                  bottom: 22,
+                  child: _FimPredictingChip(),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _EditorStatusPill extends StatelessWidget {
+  const _EditorStatusPill({required this.statusText});
+
+  final String statusText;
+
+  @override
+  Widget build(BuildContext context) {
+    final displayText = switch (statusText) {
+      '已加载' => 'AI 实时补全已就绪',
+      '补全预测中' => 'AI 补全预测中',
+      _ => statusText,
+    };
+    final active =
+        statusText == '已加载' ||
+        statusText == '补全预测中' ||
+        statusText.startsWith('Tab ');
+    final foreground = active
+        ? const Color(0xFF10B981)
+        : const Color(0xFF64748B);
+    final background = active
+        ? const Color(0xFFECFDF5)
+        : const Color(0xFFF8FAFC);
+
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.auto_awesome_outlined, size: 12, color: foreground),
+            const SizedBox(width: 4),
+            Text(
+              displayText,
+              maxLines: 1,
+              softWrap: false,
+              style: TextStyle(
+                color: foreground,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                height: 1.2,
+              ),
             ),
-          ),
-          if (predicting)
-            const Positioned(
-              right: 22,
-              bottom: 18,
-              child: _FimPredictingChip(),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -860,13 +934,15 @@ class _PreviewPane extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _PaneFrame(
+      headerPadding: const EdgeInsets.symmetric(horizontal: 24),
       header: Row(
         children: [
           Text(
             'Markdown Preview · 渲染预览',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppTheme.textSubtle,
-              fontWeight: FontWeight.w700,
+              color: const Color(0xFF94A3B8),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
               letterSpacing: 0.8,
             ),
           ),
@@ -884,24 +960,28 @@ class _PreviewPane extends StatelessWidget {
 }
 
 class _PaneFrame extends StatelessWidget {
-  const _PaneFrame({required this.header, required this.child});
+  const _PaneFrame({
+    required this.header,
+    required this.child,
+    this.headerPadding = const EdgeInsets.symmetric(horizontal: 24),
+  });
 
   final Widget header;
   final Widget child;
+  final EdgeInsetsGeometry headerPadding;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: const Color(0xFFEEF2F7)),
-        borderRadius: BorderRadius.circular(28),
+        border: Border(left: BorderSide(color: Color(0xFFEFF3F8))),
       ),
       child: Column(
         children: [
           Container(
-            height: 54,
-            padding: const EdgeInsets.symmetric(horizontal: 22),
+            height: 56,
+            padding: headerPadding,
             decoration: const BoxDecoration(
               border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
             ),

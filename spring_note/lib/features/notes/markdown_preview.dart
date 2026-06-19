@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 
-import '../../core/theme/app_theme.dart';
-
 class MarkdownPreview extends StatelessWidget {
   const MarkdownPreview({super.key, required this.markdown});
 
@@ -14,7 +12,9 @@ class MarkdownPreview extends StatelessWidget {
       return Center(
         child: Text(
           '预览区域会随着 Markdown 源码实时刷新',
-          style: Theme.of(context).textTheme.bodyMedium,
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF94A3B8)),
         ),
       );
     }
@@ -22,19 +22,21 @@ class MarkdownPreview extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     return SelectionArea(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(34, 30, 34, 48),
+        padding: const EdgeInsets.fromLTRB(32, 32, 32, 56),
         child: DefaultTextStyle.merge(
           style: textTheme.bodyLarge?.copyWith(
-            color: AppTheme.text,
-            height: 1.68,
+            color: const Color(0xFF334155),
+            fontSize: 16,
+            height: 1.8,
           ),
           child: GptMarkdown(
             markdown,
             followLinkColor: true,
             useDollarSignsForLatex: true,
             style: textTheme.bodyLarge?.copyWith(
-              color: AppTheme.text,
-              height: 1.68,
+              color: const Color(0xFF334155),
+              fontSize: 16,
+              height: 1.8,
             ),
             onLinkTap: (url, title) {},
           ),
