@@ -1530,9 +1530,9 @@ class _ReasoningBlockState extends State<_ReasoningBlock> {
                 child: Row(
                   children: [
                     const Icon(
-                      Icons.psychology_alt_outlined,
-                      size: 15,
-                      color: AppTheme.textSubtle,
+                      Icons.auto_awesome_outlined,
+                      size: 17,
+                      color: AppTheme.textMuted,
                     ),
                     const SizedBox(width: 6),
                     Expanded(
