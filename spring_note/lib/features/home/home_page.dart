@@ -296,7 +296,7 @@ class _HomePageState extends State<HomePage> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1184),
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(48, 30, 48, 40),
+            padding: const EdgeInsets.fromLTRB(48, 32, 48, 40),
             children: [
               Row(
                 children: [
@@ -309,7 +309,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ],
               ),
-              const SizedBox(height: 46),
+              const SizedBox(height: 32),
               _TodayHeroCard(
                 todayStats: _todayStats,
                 activityStats: _activityStats,
