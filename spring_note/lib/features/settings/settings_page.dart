@@ -857,7 +857,7 @@ class _ProviderDetails extends StatefulWidget {
 }
 
 class _ProviderDetailsState extends State<_ProviderDetails> {
-  bool _testingConnection = false;
+  final bool _testingConnection = false;
   bool _fetchingModels = false;
   String? _actionMessage;
 
@@ -888,87 +888,72 @@ class _ProviderDetailsState extends State<_ProviderDetails> {
             ),
           ],
         ),
-        const Divider(height: 22),
-        _LooseField(
-          label: '名称',
-          value: provider.name,
-          onChanged: (value) {
-            widget.onProviderChanged(provider.copyWith(name: value));
-          },
-        ),
-        _LooseField(
-          label: 'API Key',
-          value: provider.apiKey,
-          obscureText: true,
-          onChanged: (value) {
-            widget.onProviderChanged(provider.copyWith(apiKey: value));
-          },
-        ),
-        _LooseField(
-          label: 'API Base URL',
-          value: provider.baseUrl,
-          onChanged: (value) {
-            widget.onProviderChanged(provider.copyWith(baseUrl: value));
-          },
-        ),
-        _LooseField(
-          label: 'API 路径',
-          value: provider.apiPath,
-          onChanged: (value) {
-            widget.onProviderChanged(provider.copyWith(apiPath: value));
-          },
-        ),
-        const SizedBox(height: 12),
-        _ProviderActionsRow(
-          testingConnection: _testingConnection,
-          fetchingModels: _fetchingModels,
-          message: _actionMessage,
-          onTestConnection: _testConnection,
-          onFetchModels: _fetchModels,
-        ),
-        const SizedBox(height: 10),
-        _ModelsList(
-          provider: provider,
-          onModelChanged: widget.onModelChanged,
-          onModelDeleted: widget.onModelDeleted,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Divider(height: 12),
+            const SizedBox(height: 2),
+            _LooseField(
+              label: '名称',
+              value: provider.name,
+              onChanged: (value) {
+                widget.onProviderChanged(provider.copyWith(name: value));
+              },
+            ),
+            _LooseField(
+              label: 'API Key',
+              value: provider.apiKey,
+              obscureText: true,
+              onChanged: (value) {
+                widget.onProviderChanged(provider.copyWith(apiKey: value));
+              },
+            ),
+            _LooseField(
+              label: 'API Base URL',
+              value: provider.baseUrl,
+              onChanged: (value) {
+                widget.onProviderChanged(provider.copyWith(baseUrl: value));
+              },
+            ),
+            _LooseField(
+              label: 'API 路径',
+              value: provider.apiPath,
+              onChanged: (value) {
+                widget.onProviderChanged(provider.copyWith(apiPath: value));
+              },
+            ),
+            const SizedBox(height: 12),
+            _ModelsList(
+              provider: provider,
+              testingConnection: _testingConnection,
+              fetchingModels: _fetchingModels,
+              actionMessage: _actionMessage,
+              onTestConnection: _testConnection,
+              onFetchModels: _fetchModels,
+              onModelChanged: widget.onModelChanged,
+              onModelDeleted: widget.onModelDeleted,
+            ),
+          ],
         ),
       ],
     );
   }
 
   Future<void> _testConnection() async {
-    final model = widget.provider.models.isEmpty
-        ? null
-        : widget.provider.models.first;
-    if (model == null) {
+    if (widget.provider.models.isEmpty) {
       setState(() => _actionMessage = '请先添加至少一个模型。');
       return;
     }
 
-    setState(() {
-      _testingConnection = true;
-      _actionMessage = null;
-    });
-    try {
-      final result = await widget.aiClientService.testProviderConnection(
+    await showDialog<void>(
+      context: context,
+      builder: (_) => _ProviderConnectionTestDialog(
         appDataDir: widget.appDataDir,
         apiLogEnabled: widget.apiLogEnabled,
+        aiClientService: widget.aiClientService,
         provider: widget.provider,
-        model: model,
-      );
-      if (!mounted) {
-        return;
-      }
-      setState(() => _actionMessage = result.message);
-    } catch (_) {
-      if (mounted) {
-        setState(() => _actionMessage = '连接测试失败，请检查 API Key、Base URL 和模型。');
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _testingConnection = false);
-      }
-    }
+      ),
+    );
   }
 
   Future<void> _fetchModels() async {
@@ -1010,6 +995,645 @@ class _ProviderDetailsState extends State<_ProviderDetails> {
         setState(() => _fetchingModels = false);
       }
     }
+  }
+}
+
+class _ProviderConnectionTestDialog extends StatefulWidget {
+  const _ProviderConnectionTestDialog({
+    required this.appDataDir,
+    required this.apiLogEnabled,
+    required this.aiClientService,
+    required this.provider,
+  });
+
+  final String appDataDir;
+  final bool apiLogEnabled;
+  final AiClientService aiClientService;
+  final ProviderConfig provider;
+
+  @override
+  State<_ProviderConnectionTestDialog> createState() =>
+      _ProviderConnectionTestDialogState();
+}
+
+class _ProviderConnectionTestDialogState
+    extends State<_ProviderConnectionTestDialog> {
+  String? _selectedModelId;
+  _ProviderConnectionTestStatus? _status;
+  bool _useStream = false;
+
+  ModelConfig? get _selectedModel {
+    final selectedId = _selectedModelId;
+    if (selectedId == null) {
+      return null;
+    }
+    return widget.provider.models.firstWhere(
+      (model) => model.modelId == selectedId,
+      orElse: () => widget.provider.models.first,
+    );
+  }
+
+  bool get _testing =>
+      _status?.kind == _ProviderConnectionTestStatusKind.testing;
+
+  Future<void> _openModelPicker() async {
+    final model = await showDialog<ModelConfig>(
+      context: context,
+      builder: (_) => _ProviderConnectionModelPickerDialog(
+        provider: widget.provider,
+        selectedModelId: _selectedModelId,
+      ),
+    );
+    if (model == null || !mounted) {
+      return;
+    }
+    setState(() {
+      _selectedModelId = model.modelId;
+      _status = null;
+    });
+  }
+
+  Future<void> _runTest() async {
+    final model = _selectedModel;
+    if (_testing) {
+      return;
+    }
+    if (model == null) {
+      await _openModelPicker();
+      return;
+    }
+
+    setState(() {
+      _status = _ProviderConnectionTestStatus.testing(
+        _useStream ? '流式测试中' : '测试中',
+      );
+    });
+
+    try {
+      final result = _useStream
+          ? await widget.aiClientService.testProviderConnectionStream(
+              appDataDir: widget.appDataDir,
+              apiLogEnabled: widget.apiLogEnabled,
+              provider: widget.provider,
+              model: model,
+            )
+          : await widget.aiClientService.testProviderConnection(
+              appDataDir: widget.appDataDir,
+              apiLogEnabled: widget.apiLogEnabled,
+              provider: widget.provider,
+              model: model,
+            );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _status = result.ok
+            ? _ProviderConnectionTestStatus.success(result.message)
+            : _ProviderConnectionTestStatus.failure(result.message);
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _status = _ProviderConnectionTestStatus.failure('连接测试失败');
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedModel = _selectedModel;
+    return Dialog(
+      key: const ValueKey('provider-connection-test-dialog'),
+      backgroundColor: Colors.white,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+      child: SizedBox(
+        width: 500,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
+              child: Text(
+                '测试连接',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: AppTheme.text,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
+              child: _ProviderSelectedModelButton(
+                model: selectedModel,
+                onTap: _testing ? null : _openModelPicker,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  Text(
+                    '使用流式',
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: AppTheme.text,
+                      height: 1.2,
+                    ),
+                  ),
+                  const Spacer(),
+                  SizedBox(
+                    width: 52,
+                    height: 30,
+                    child: FittedBox(
+                      fit: BoxFit.contain,
+                      child: Switch(
+                        value: _useStream,
+                        activeThumbColor: Colors.white,
+                        activeTrackColor: Colors.black,
+                        inactiveThumbColor: Colors.white,
+                        inactiveTrackColor: const Color(0xFFD8D8D8),
+                        onChanged: _testing
+                            ? null
+                            : (value) => setState(() {
+                                _useStream = value;
+                                _status = null;
+                              }),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
+              child: Center(
+                child: _ProviderConnectionResultView(status: _status),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  _ProviderTestDialogButton(
+                    label: '取消',
+                    filled: false,
+                    onTap: _testing ? null : () => Navigator.of(context).pop(),
+                  ),
+                  const SizedBox(width: 10),
+                  _ProviderTestDialogButton(
+                    label: _testing ? '测试中' : '测试',
+                    filled: true,
+                    onTap: _testing ? null : _runTest,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+enum _ProviderConnectionTestStatusKind { testing, success, failure }
+
+class _ProviderConnectionTestStatus {
+  const _ProviderConnectionTestStatus._({
+    required this.kind,
+    required this.message,
+  });
+
+  factory _ProviderConnectionTestStatus.testing(String message) {
+    return _ProviderConnectionTestStatus._(
+      kind: _ProviderConnectionTestStatusKind.testing,
+      message: message,
+    );
+  }
+
+  factory _ProviderConnectionTestStatus.success(String message) {
+    return _ProviderConnectionTestStatus._(
+      kind: _ProviderConnectionTestStatusKind.success,
+      message: message.isEmpty ? '连接成功' : message,
+    );
+  }
+
+  factory _ProviderConnectionTestStatus.failure(String message) {
+    return _ProviderConnectionTestStatus._(
+      kind: _ProviderConnectionTestStatusKind.failure,
+      message: message.isEmpty ? '连接失败' : message,
+    );
+  }
+
+  final _ProviderConnectionTestStatusKind kind;
+  final String message;
+}
+
+class _ProviderSelectedModelButton extends StatefulWidget {
+  const _ProviderSelectedModelButton({
+    required this.model,
+    required this.onTap,
+  });
+
+  final ModelConfig? model;
+  final VoidCallback? onTap;
+
+  @override
+  State<_ProviderSelectedModelButton> createState() =>
+      _ProviderSelectedModelButtonState();
+}
+
+class _ProviderSelectedModelButtonState
+    extends State<_ProviderSelectedModelButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = widget.onTap != null;
+    final model = widget.model;
+    return MouseRegion(
+      cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      onEnter: (_) {
+        if (enabled) {
+          setState(() => _hovered = true);
+        }
+      },
+      onExit: (_) {
+        if (_hovered) {
+          setState(() => _hovered = false);
+        }
+      },
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          curve: Curves.easeOutCubic,
+          height: 50,
+          decoration: BoxDecoration(
+            color: _hovered ? const Color(0xFFEDEDED) : const Color(0xFFF7F7F7),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFDCDCDC)),
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              if (model != null)
+                const Positioned(
+                  left: 16,
+                  child: _ProviderModelAvatar(size: 20),
+                ),
+              Center(
+                child: Text(
+                  model?.displayName ?? '选择模型',
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppTheme.text,
+                    fontWeight: FontWeight.w700,
+                    height: 1.2,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProviderConnectionResultView extends StatelessWidget {
+  const _ProviderConnectionResultView({required this.status});
+
+  final _ProviderConnectionTestStatus? status;
+
+  @override
+  Widget build(BuildContext context) {
+    final current = status;
+    if (current == null) {
+      return const SizedBox(height: 18);
+    }
+    if (current.kind == _ProviderConnectionTestStatusKind.testing) {
+      return const SizedBox(
+        key: ValueKey('provider-connection-testing'),
+        width: 22,
+        height: 22,
+        child: CircularProgressIndicator(
+          strokeWidth: 2.2,
+          valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+        ),
+      );
+    }
+
+    final success = current.kind == _ProviderConnectionTestStatusKind.success;
+    return Tooltip(
+      message: current.message,
+      child: Text(
+        success ? '测试成功' : current.message,
+        key: ValueKey(
+          success
+              ? 'provider-connection-success'
+              : 'provider-connection-failure',
+        ),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          color: success ? const Color(0xFF48B45A) : const Color(0xFFB24A4A),
+          fontWeight: FontWeight.w700,
+          height: 1.25,
+        ),
+      ),
+    );
+  }
+}
+
+class _ProviderConnectionModelPickerDialog extends StatefulWidget {
+  const _ProviderConnectionModelPickerDialog({
+    required this.provider,
+    required this.selectedModelId,
+  });
+
+  final ProviderConfig provider;
+  final String? selectedModelId;
+
+  @override
+  State<_ProviderConnectionModelPickerDialog> createState() =>
+      _ProviderConnectionModelPickerDialogState();
+}
+
+class _ProviderConnectionModelPickerDialogState
+    extends State<_ProviderConnectionModelPickerDialog> {
+  late final TextEditingController _controller = TextEditingController();
+  String _query = '';
+  String? _hoveredModelId;
+
+  List<ModelConfig> get _models {
+    final normalizedQuery = _query.trim().toLowerCase();
+    final values = [...widget.provider.models]
+      ..sort(
+        (a, b) =>
+            a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()),
+      );
+    if (normalizedQuery.isEmpty) {
+      return values;
+    }
+    return values.where((model) {
+      final searchable =
+          '${model.displayName} ${model.modelId} ${widget.provider.name}'
+              .toLowerCase();
+      return searchable.contains(normalizedQuery);
+    }).toList();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final models = _models;
+    return Dialog(
+      key: const ValueKey('provider-connection-model-picker-dialog'),
+      backgroundColor: Colors.white,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: SizedBox(
+        width: 560,
+        height: 600,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
+              child: _SettingsSearchField(
+                controller: _controller,
+                autofocus: true,
+                hintText: '搜索模型或服务商',
+                onChanged: (value) => setState(() => _query = value),
+              ),
+            ),
+            Expanded(
+              child: models.isEmpty
+                  ? Center(
+                      child: Text(
+                        '没有匹配的模型',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 14),
+                      itemCount: models.length,
+                      itemBuilder: (context, index) {
+                        final model = models[index];
+                        return _ProviderConnectionModelOptionTile(
+                          model: model,
+                          selected: model.modelId == widget.selectedModelId,
+                          hovered: model.modelId == _hoveredModelId,
+                          onHoverChanged: (hovered) {
+                            setState(() {
+                              if (hovered) {
+                                _hoveredModelId = model.modelId;
+                              } else if (_hoveredModelId == model.modelId) {
+                                _hoveredModelId = null;
+                              }
+                            });
+                          },
+                          onTap: () => Navigator.of(context).pop(model),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProviderConnectionModelOptionTile extends StatelessWidget {
+  const _ProviderConnectionModelOptionTile({
+    required this.model,
+    required this.selected,
+    required this.hovered,
+    required this.onHoverChanged,
+    required this.onTap,
+  });
+
+  final ModelConfig model;
+  final bool selected;
+  final bool hovered;
+  final ValueChanged<bool> onHoverChanged;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = selected || hovered;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => onHoverChanged(true),
+      onExit: (_) => onHoverChanged(false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: SizedBox(
+          height: 48,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 120),
+                  curve: Curves.easeOutCubic,
+                  opacity: active ? 1 : 0,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? const Color(0xFFE2E2E2)
+                          : const Color(0xFFF5F5F5),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned.fill(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
+                    children: [
+                      const _ProviderModelAvatar(size: 22),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          model.displayName,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: active
+                                    ? AppTheme.text
+                                    : AppTheme.textMuted,
+                                fontWeight: selected
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
+                                height: 1.2,
+                              ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      AnimatedOpacity(
+                        duration: const Duration(milliseconds: 120),
+                        opacity: selected ? 1 : 0,
+                        child: const Icon(
+                          Icons.check_rounded,
+                          size: 17,
+                          color: AppTheme.text,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProviderModelAvatar extends StatelessWidget {
+  const _ProviderModelAvatar({required this.size});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: const Color(0xFFEDEDED),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Icon(
+        Icons.auto_awesome_outlined,
+        size: size * 0.62,
+        color: AppTheme.textMuted,
+      ),
+    );
+  }
+}
+
+class _ProviderTestDialogButton extends StatefulWidget {
+  const _ProviderTestDialogButton({
+    required this.label,
+    required this.filled,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool filled;
+  final VoidCallback? onTap;
+
+  @override
+  State<_ProviderTestDialogButton> createState() =>
+      _ProviderTestDialogButtonState();
+}
+
+class _ProviderTestDialogButtonState extends State<_ProviderTestDialogButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = widget.onTap != null;
+    final backgroundColor = widget.filled
+        ? !enabled
+              ? const Color(0xFF4F4F4F)
+              : (_hovered ? const Color(0xFF2A2A2A) : Colors.black)
+        : (_hovered && enabled ? const Color(0xFFF5F5F5) : Colors.white);
+    final foregroundColor = widget.filled ? Colors.white : AppTheme.text;
+    return MouseRegion(
+      cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      onEnter: (_) {
+        if (enabled) {
+          setState(() => _hovered = true);
+        }
+      },
+      onExit: (_) {
+        if (_hovered) {
+          setState(() => _hovered = false);
+        }
+      },
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 130),
+          curve: Curves.easeOutCubic,
+          height: 40,
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius: BorderRadius.circular(14),
+            border: widget.filled
+                ? null
+                : Border.all(color: const Color(0xFF8A8A8A)),
+          ),
+          child: Center(
+            child: Text(
+              widget.label,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: foregroundColor,
+                fontWeight: FontWeight.w700,
+                height: 1.2,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -1432,44 +2056,14 @@ class _ProviderModelGroupHeader extends StatefulWidget {
       _ProviderModelGroupHeaderState();
 }
 
-class _ProviderModelGroupHeaderState extends State<_ProviderModelGroupHeader>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _bounceController = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 260),
-  );
-  late final Animation<double> _scale = TweenSequence<double>([
-    TweenSequenceItem(
-      tween: Tween(
-        begin: 1.0,
-        end: 0.985,
-      ).chain(CurveTween(curve: Curves.easeOutCubic)),
-      weight: 28,
-    ),
-    TweenSequenceItem(
-      tween: Tween(
-        begin: 0.985,
-        end: 1.012,
-      ).chain(CurveTween(curve: Curves.easeOutCubic)),
-      weight: 34,
-    ),
-    TweenSequenceItem(
-      tween: Tween(
-        begin: 1.012,
-        end: 1.0,
-      ).chain(CurveTween(curve: Curves.easeOutCubic)),
-      weight: 38,
-    ),
-  ]).animate(_bounceController);
+class _ProviderModelGroupHeaderState extends State<_ProviderModelGroupHeader> {
+  bool _pressed = false;
 
-  @override
-  void dispose() {
-    _bounceController.dispose();
-    super.dispose();
-  }
-
-  void _playBounce() {
-    _bounceController.forward(from: 0);
+  void _setPressed(bool pressed) {
+    if (_pressed == pressed) {
+      return;
+    }
+    setState(() => _pressed = pressed);
   }
 
   @override
@@ -1483,12 +2077,20 @@ class _ProviderModelGroupHeaderState extends State<_ProviderModelGroupHeader>
       cursor: SystemMouseCursors.click,
       onEnter: (_) => widget.onHoverChanged(true),
       onExit: (_) => widget.onHoverChanged(false),
-      child: GestureDetector(
+      child: Listener(
         behavior: HitTestBehavior.opaque,
-        onTapDown: (_) => _playBounce(),
-        onTap: widget.onTap,
-        child: ScaleTransition(
-          scale: _scale,
+        onPointerDown: (_) => _setPressed(true),
+        onPointerCancel: (_) => _setPressed(false),
+        onPointerUp: (_) {
+          _setPressed(false);
+          widget.onTap();
+        },
+        child: AnimatedScale(
+          scale: _pressed ? 0.985 : 1,
+          duration: _pressed
+              ? const Duration(milliseconds: 80)
+              : const Duration(milliseconds: 240),
+          curve: _pressed ? Curves.easeOutCubic : Curves.easeOutBack,
           child: SizedBox(
             height: 50,
             child: Stack(
@@ -1827,75 +2429,24 @@ String _providerModelDisplayName(String modelId, String displayName) {
   return modelId;
 }
 
-class _ProviderActionsRow extends StatelessWidget {
-  const _ProviderActionsRow({
-    required this.testingConnection,
-    required this.fetchingModels,
-    required this.message,
-    required this.onTestConnection,
-    required this.onFetchModels,
-  });
-
-  final bool testingConnection;
-  final bool fetchingModels;
-  final String? message;
-  final VoidCallback onTestConnection;
-  final VoidCallback onFetchModels;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        OutlinedButton.icon(
-          onPressed: testingConnection ? null : onTestConnection,
-          icon: testingConnection
-              ? const SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.cable_rounded, size: 16),
-          label: Text(testingConnection ? '测试中' : '测试连接'),
-        ),
-        const SizedBox(width: 10),
-        OutlinedButton.icon(
-          onPressed: fetchingModels ? null : onFetchModels,
-          icon: fetchingModels
-              ? const SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.cloud_download_outlined, size: 16),
-          label: Text(fetchingModels ? '获取中' : '获取模型'),
-        ),
-        if (message != null) ...[
-          const SizedBox(width: 14),
-          Expanded(
-            child: Text(
-              message!,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: AppTheme.textSubtle),
-            ),
-          ),
-        ] else
-          const Spacer(),
-      ],
-    );
-  }
-}
-
 class _ModelsList extends StatelessWidget {
   const _ModelsList({
     required this.provider,
+    required this.testingConnection,
+    required this.fetchingModels,
+    required this.actionMessage,
+    required this.onTestConnection,
+    required this.onFetchModels,
     required this.onModelChanged,
     required this.onModelDeleted,
   });
 
   final ProviderConfig provider;
+  final bool testingConnection;
+  final bool fetchingModels;
+  final String? actionMessage;
+  final VoidCallback onTestConnection;
+  final VoidCallback onFetchModels;
   final Future<void> Function(ProviderConfig provider, ModelConfig model)
   onModelChanged;
   final Future<void> Function(ProviderConfig provider, String modelId)
@@ -1905,14 +2456,37 @@ class _ModelsList extends StatelessWidget {
   Widget build(BuildContext context) {
     return _SettingsCard(
       title: '模型',
+      titleAccessory: _ModelCountPill(count: provider.models.length),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            '${provider.models.length}',
-            style: Theme.of(context).textTheme.bodyMedium,
+          _ModelHeaderIconButton(
+            key: const ValueKey('test-provider-connection-button'),
+            tooltip: testingConnection ? '测试中' : '测试连接',
+            onPressed: testingConnection ? null : onTestConnection,
+            icon: testingConnection
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.cable_rounded, size: 16),
           ),
-          IconButton(
+          const SizedBox(width: 4),
+          _ModelHeaderIconButton(
+            key: const ValueKey('fetch-provider-models-button'),
+            tooltip: fetchingModels ? '获取中' : '获取模型',
+            onPressed: fetchingModels ? null : onFetchModels,
+            icon: fetchingModels
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.cloud_download_outlined, size: 16),
+          ),
+          const SizedBox(width: 4),
+          _ModelHeaderIconButton(
             key: const ValueKey('add-model-button'),
             tooltip: '添加模型',
             onPressed: () async {
@@ -1929,6 +2503,21 @@ class _ModelsList extends StatelessWidget {
         ],
       ),
       children: [
+        if (actionMessage != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                actionMessage!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: AppTheme.textSubtle),
+              ),
+            ),
+          ),
         if (provider.models.isEmpty)
           _SimpleRow(label: '暂无模型', value: '点击右上角添加')
         else
@@ -1977,6 +2566,100 @@ class _ModelsList extends StatelessWidget {
               ),
             ),
       ],
+    );
+  }
+}
+
+class _ModelCountPill extends StatelessWidget {
+  const _ModelCountPill({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 22,
+      constraints: const BoxConstraints(minWidth: 30),
+      padding: const EdgeInsets.symmetric(horizontal: 9),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF2F2F2),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        '$count',
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: const Color(0xFF555555),
+          fontWeight: FontWeight.w700,
+          height: 1,
+        ),
+      ),
+    );
+  }
+}
+
+class _ModelHeaderIconButton extends StatefulWidget {
+  const _ModelHeaderIconButton({
+    super.key,
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final Widget icon;
+  final VoidCallback? onPressed;
+
+  @override
+  State<_ModelHeaderIconButton> createState() => _ModelHeaderIconButtonState();
+}
+
+class _ModelHeaderIconButtonState extends State<_ModelHeaderIconButton> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = widget.onPressed != null;
+    final color = !enabled
+        ? const Color(0xFFBDBDBD)
+        : (_hovered ? AppTheme.text : AppTheme.textSubtle);
+    return Tooltip(
+      message: widget.tooltip,
+      child: MouseRegion(
+        cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+        onEnter: (_) {
+          if (enabled) {
+            setState(() => _hovered = true);
+          }
+        },
+        onExit: (_) {
+          if (_hovered) {
+            setState(() => _hovered = false);
+          }
+        },
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.onPressed,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 130),
+            curve: Curves.easeOutCubic,
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: _hovered && enabled
+                  ? const Color(0xFFF2F2F2)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Center(
+              child: IconTheme(
+                data: IconThemeData(color: color, size: 16),
+                child: widget.icon,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -3225,11 +3908,13 @@ class _SettingsCard extends StatelessWidget {
   const _SettingsCard({
     required this.title,
     required this.children,
+    this.titleAccessory,
     this.trailing,
   });
 
   final String title;
   final List<Widget> children;
+  final Widget? titleAccessory;
   final Widget? trailing;
 
   @override
@@ -3247,6 +3932,10 @@ class _SettingsCard extends StatelessWidget {
             child: Row(
               children: [
                 Text(title, style: Theme.of(context).textTheme.titleMedium),
+                if (titleAccessory != null) ...[
+                  const SizedBox(width: 8),
+                  titleAccessory!,
+                ],
                 const Spacer(),
                 ?trailing,
               ],
@@ -3847,6 +4536,7 @@ class _CommittedTextField extends StatefulWidget {
     this.textAlign = TextAlign.start,
     this.keyboardType,
     this.obscureText = false,
+    this.compact = false,
   });
 
   final String value;
@@ -3854,6 +4544,7 @@ class _CommittedTextField extends StatefulWidget {
   final TextAlign textAlign;
   final TextInputType? keyboardType;
   final bool obscureText;
+  final bool compact;
 
   @override
   State<_CommittedTextField> createState() => _CommittedTextFieldState();
@@ -3883,12 +4574,19 @@ class _CommittedTextFieldState extends State<_CommittedTextField> {
     return TextField(
       controller: _controller,
       textAlign: widget.textAlign,
+      textAlignVertical: widget.compact ? TextAlignVertical.center : null,
       keyboardType: widget.keyboardType,
       obscureText: widget.obscureText,
       onChanged: widget.onChanged,
       onSubmitted: widget.onChanged,
       onEditingComplete: () => widget.onChanged(_controller.text),
-      decoration: const InputDecoration(isDense: true),
+      decoration: widget.compact
+          ? const InputDecoration(
+              isDense: true,
+              contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+              constraints: BoxConstraints.tightFor(height: 48),
+            )
+          : const InputDecoration(isDense: true),
     );
   }
 }
@@ -3909,15 +4607,16 @@ class _LooseField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label, style: Theme.of(context).textTheme.labelLarge),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           _CommittedTextField(
             value: value,
             obscureText: obscureText,
+            compact: true,
             onChanged: onChanged,
           ),
         ],

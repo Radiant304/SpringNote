@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:spring_note/core/models/app_config.dart';
 import 'package:spring_note/core/models/local_data_state.dart';
+import 'package:spring_note/core/models/model_config.dart';
 import 'package:spring_note/core/models/provider_config.dart';
 import 'package:spring_note/core/services/ai_client_service.dart';
 import 'package:spring_note/core/services/local_data_service.dart';
@@ -296,7 +297,9 @@ void main() {
 
     await tester.tap(find.text('供应商').first);
     await tester.pump();
-    await tester.tap(find.text('获取模型'));
+    await tester.tap(
+      find.byKey(const ValueKey('fetch-provider-models-button')),
+    );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 360));
 
@@ -325,6 +328,90 @@ void main() {
       service.savedConfig.providers.first.models.map((model) => model.modelId),
       isNot(contains('qwen/qwen3-coder')),
     );
+  });
+
+  testWidgets('provider connection test dialog selects model and stream mode', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    const provider = ProviderConfig(
+      id: 'openai-test',
+      enabled: true,
+      name: 'OpenAI',
+      protocol: 'openaiCompatible',
+      apiKey: 'test-key',
+      baseUrl: 'https://api.openai.com/v1',
+      apiPath: '/chat/completions',
+      models: [
+        ModelConfig(modelId: 'alpha-model', displayName: 'Alpha Model'),
+        ModelConfig(modelId: 'beta-model', displayName: 'Beta Model'),
+      ],
+    );
+    final localDataService = _MemoryLocalDataService(
+      AppConfig.defaults().copyWith(providers: const [provider]),
+    );
+    final aiClientService = _RecordingAiClientService();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: SettingsPage(
+          localDataState: _state(localDataService.savedConfig),
+          localDataService: localDataService,
+          aiClientService: aiClientService,
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('供应商').first);
+    await tester.pump();
+    await tester.tap(
+      find.byKey(const ValueKey('test-provider-connection-button')),
+    );
+    await tester.pumpAndSettle();
+
+    final dialog = find.byKey(
+      const ValueKey('provider-connection-test-dialog'),
+    );
+    expect(dialog, findsOneWidget);
+    expect(find.text('选择模型'), findsOneWidget);
+
+    await tester.tap(find.descendant(of: dialog, matching: find.text('选择模型')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 220));
+
+    final picker = find.byKey(
+      const ValueKey('provider-connection-model-picker-dialog'),
+    );
+    expect(picker, findsOneWidget);
+
+    await tester.tap(
+      find.descendant(of: picker, matching: find.text('Beta Model')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 220));
+    expect(picker, findsNothing);
+    expect(
+      find.descendant(of: dialog, matching: find.text('Beta Model')),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.descendant(of: dialog, matching: find.byType(Switch)),
+    );
+    await tester.pump();
+    await tester.tap(find.descendant(of: dialog, matching: find.text('测试')));
+    await tester.pumpAndSettle();
+
+    expect(aiClientService.streamTested, isTrue);
+    expect(aiClientService.nonStreamTested, isFalse);
+    expect(aiClientService.lastModelId, 'beta-model');
+    expect(dialog, findsOneWidget);
+    expect(find.text('测试成功'), findsOneWidget);
   });
 }
 
@@ -404,6 +491,44 @@ class _FakeAiClientService extends AiClientService {
       ],
       errorCode: '',
       errorMessage: '',
+    );
+  }
+}
+
+class _RecordingAiClientService extends AiClientService {
+  bool streamTested = false;
+  bool nonStreamTested = false;
+  String? lastModelId;
+
+  @override
+  Future<rust_ai.ProviderTestResult> testProviderConnection({
+    required String appDataDir,
+    required bool apiLogEnabled,
+    required ProviderConfig provider,
+    required ModelConfig model,
+  }) async {
+    nonStreamTested = true;
+    lastModelId = model.modelId;
+    return const rust_ai.ProviderTestResult(
+      ok: true,
+      message: 'non-stream-ok',
+      errorCode: '',
+    );
+  }
+
+  @override
+  Future<rust_ai.ProviderTestResult> testProviderConnectionStream({
+    required String appDataDir,
+    required bool apiLogEnabled,
+    required ProviderConfig provider,
+    required ModelConfig model,
+  }) async {
+    streamTested = true;
+    lastModelId = model.modelId;
+    return const rust_ai.ProviderTestResult(
+      ok: true,
+      message: 'stream-ok',
+      errorCode: '',
     );
   }
 }

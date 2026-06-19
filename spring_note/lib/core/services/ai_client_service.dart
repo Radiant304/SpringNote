@@ -1,3 +1,7 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
+
 import '../../src/rust/ai.dart' as rust_ai;
 import '../../src/rust/api/ai_api.dart' as rust_api;
 import '../models/app_config.dart';
@@ -87,6 +91,143 @@ class AiClientService {
       provider: _toRustProvider(provider),
       model: _toRustModel(model),
     );
+  }
+
+  Future<rust_ai.ProviderTestResult> testProviderConnectionStream({
+    required String appDataDir,
+    required bool apiLogEnabled,
+    required ProviderConfig provider,
+    required ModelConfig model,
+  }) async {
+    if (provider.protocol != 'openaiCompatible') {
+      return const rust_ai.ProviderTestResult(
+        ok: false,
+        message: '流式连接测试目前仅支持 OpenAI-compatible 供应商。',
+        errorCode: 'unsupported_stream_protocol',
+      );
+    }
+    if (provider.apiKey.trim().isEmpty) {
+      return const rust_ai.ProviderTestResult(
+        ok: false,
+        message: '供应商 API Key 为空。',
+        errorCode: 'missing_api_key',
+      );
+    }
+
+    final client = HttpClient();
+    try {
+      final request = await client
+          .postUrl(Uri.parse(_joinUrl(provider.baseUrl, provider.apiPath)))
+          .timeout(const Duration(seconds: 15));
+      request.headers
+        ..set(HttpHeaders.authorizationHeader, 'Bearer ${provider.apiKey}')
+        ..set(HttpHeaders.contentTypeHeader, ContentType.json.mimeType);
+      request.write(
+        jsonEncode({
+          'model': model.modelId,
+          'messages': const [
+            {
+              'role': 'system',
+              'content':
+                  'You are a connection test endpoint. Reply with OK only.',
+            },
+            {'role': 'user', 'content': 'Say OK.'},
+          ],
+          'temperature': 0.2,
+          'stream': true,
+        }),
+      );
+
+      final response = await request.close().timeout(
+        const Duration(seconds: 45),
+      );
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        final body = await utf8.decoder.bind(response).join();
+        return rust_ai.ProviderTestResult(
+          ok: false,
+          message: 'HTTP ${response.statusCode}: $body',
+          errorCode: 'stream_http_error',
+        );
+      }
+
+      var buffer = '';
+      var sawStreamEvent = false;
+      await for (final chunk
+          in utf8.decoder.bind(response).timeout(const Duration(seconds: 45))) {
+        buffer += chunk;
+        while (true) {
+          final lineEnd = buffer.indexOf('\n');
+          if (lineEnd < 0) {
+            break;
+          }
+          final line = buffer.substring(0, lineEnd).trim();
+          buffer = buffer.substring(lineEnd + 1);
+          if (!line.startsWith('data:')) {
+            continue;
+          }
+          final payload = line.substring(5).trim();
+          if (payload.isEmpty) {
+            continue;
+          }
+          if (payload == '[DONE]') {
+            return const rust_ai.ProviderTestResult(
+              ok: true,
+              message: '流式连接成功',
+              errorCode: '',
+            );
+          }
+          sawStreamEvent = true;
+          final errorMessage = _readStreamErrorMessage(payload);
+          if (errorMessage != null) {
+            return rust_ai.ProviderTestResult(
+              ok: false,
+              message: errorMessage,
+              errorCode: 'stream_error',
+            );
+          }
+        }
+      }
+
+      if (sawStreamEvent) {
+        return const rust_ai.ProviderTestResult(
+          ok: true,
+          message: '流式连接成功',
+          errorCode: '',
+        );
+      }
+
+      final tail = buffer.trim();
+      if (tail.isNotEmpty) {
+        final errorMessage = _readStreamErrorMessage(tail);
+        if (errorMessage != null) {
+          return rust_ai.ProviderTestResult(
+            ok: false,
+            message: errorMessage,
+            errorCode: 'stream_error',
+          );
+        }
+      }
+
+      return const rust_ai.ProviderTestResult(
+        ok: false,
+        message: '流式连接测试未收到有效事件。',
+        errorCode: 'stream_no_event',
+      );
+    } on TimeoutException {
+      return const rust_ai.ProviderTestResult(
+        ok: false,
+        message: '流式连接测试超时。',
+        errorCode: 'stream_timeout',
+      );
+    } catch (error) {
+      return rust_ai.ProviderTestResult(
+        ok: false,
+        message: error.toString(),
+        errorCode: 'stream_request_failed',
+      );
+    } finally {
+      client.close(force: true);
+    }
   }
 
   Future<rust_ai.ModelListResult> fetchProviderModels({
@@ -333,6 +474,33 @@ class AiClientService {
     final month = date.month.toString().padLeft(2, '0');
     final day = date.day.toString().padLeft(2, '0');
     return '$year-$month-$day';
+  }
+
+  String _joinUrl(String baseUrl, String apiPath) {
+    final normalizedBase = baseUrl.trim().replaceAll(RegExp(r'/+$'), '');
+    final normalizedPath = apiPath.trim().replaceAll(RegExp(r'^/+'), '');
+    if (normalizedPath.isEmpty) {
+      return normalizedBase;
+    }
+    return '$normalizedBase/$normalizedPath';
+  }
+
+  String? _readStreamErrorMessage(String payload) {
+    try {
+      final decoded = jsonDecode(payload);
+      if (decoded is Map) {
+        final error = decoded['error'];
+        if (error is Map && error['message'] != null) {
+          return error['message'].toString();
+        }
+        if (error is String && error.isNotEmpty) {
+          return error;
+        }
+      }
+    } catch (_) {
+      return null;
+    }
+    return null;
   }
 }
 
