@@ -1071,7 +1071,6 @@ class _ToolAttachmentChip extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(10, 7, 12, 7),
           decoration: BoxDecoration(
             color: const Color(0xFFF5F5F5),
-            border: Border.all(color: const Color(0xFFE0E0E0)),
             borderRadius: BorderRadius.circular(999),
           ),
           child: Row(
@@ -1230,7 +1229,6 @@ class _ToolDetailBlock extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: const Color(0xFFF5F5F5),
-              border: Border.all(color: const Color(0xFFE0E0E0)),
               borderRadius: BorderRadius.circular(14),
             ),
             child: SelectableText(
@@ -1296,45 +1294,48 @@ class _ReasoningBlockState extends State<_ReasoningBlock> {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
       decoration: BoxDecoration(
         color: const Color(0xFFF5F5F5),
-        border: Border.all(color: const Color(0xFFE0E0E0)),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          InkWell(
-            borderRadius: BorderRadius.circular(12),
-            splashFactory: NoSplash.splashFactory,
-            overlayColor: WidgetStateProperty.all(Colors.transparent),
-            onTap: () => setState(() => _expanded = !_expanded),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.psychology_alt_outlined,
-                  size: 15,
-                  color: AppTheme.textSubtle,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    '思考过程',
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => setState(() => _expanded = !_expanded),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.psychology_alt_outlined,
+                      size: 15,
                       color: AppTheme.textSubtle,
-                      fontWeight: FontWeight.w700,
                     ),
-                  ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        '思考过程',
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(
+                              color: AppTheme.textSubtle,
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                    ),
+                    Icon(
+                      _expanded
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
+                      size: 18,
+                      color: AppTheme.textSubtle,
+                    ),
+                  ],
                 ),
-                Icon(
-                  _expanded
-                      ? Icons.keyboard_arrow_up_rounded
-                      : Icons.keyboard_arrow_down_rounded,
-                  size: 18,
-                  color: AppTheme.textSubtle,
-                ),
-              ],
+              ),
             ),
           ),
           if (_expanded) _buildReasoningBody(context),
@@ -1349,8 +1350,8 @@ class _ReasoningBlockState extends State<_ReasoningBlock> {
     ).textTheme.bodySmall?.copyWith(color: AppTheme.textSubtle, height: 1.65);
     final text = Text(widget.reasoning.trim(), style: style);
     final content = Padding(
-      padding: const EdgeInsets.only(top: 10),
-      child: text,
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+      child: SizedBox(width: double.infinity, child: text),
     );
 
     if (widget.collapsed) {
@@ -1358,17 +1359,20 @@ class _ReasoningBlockState extends State<_ReasoningBlock> {
     }
 
     return Padding(
-      padding: const EdgeInsets.only(top: 10),
-      child: AnimatedSize(
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOutCubic,
-        alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 118),
-          child: SingleChildScrollView(
-            controller: _scrollController,
-            physics: const ClampingScrollPhysics(),
-            child: text,
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+      child: SizedBox(
+        width: double.infinity,
+        child: AnimatedSize(
+          duration: const Duration(milliseconds: 120),
+          curve: Curves.easeOutCubic,
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 118),
+            child: SingleChildScrollView(
+              controller: _scrollController,
+              physics: const ClampingScrollPhysics(),
+              child: text,
+            ),
           ),
         ),
       ),
