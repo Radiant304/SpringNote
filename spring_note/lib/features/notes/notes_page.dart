@@ -1178,7 +1178,7 @@ class _EditorPaneState extends State<_EditorPane> {
     const editorStyle = TextStyle(
       color: Color(0xFF3A3A3A),
       fontFamily: 'Consolas',
-      fontSize: 13,
+      fontSize: 15.6,
       height: 1.75,
     );
     return _PaneFrame(
@@ -1248,9 +1248,9 @@ class _EditorPaneState extends State<_EditorPane> {
                         disabledBorder: InputBorder.none,
                         contentPadding: EdgeInsets.fromLTRB(
                           sideInset,
-                          32,
+                          0,
                           sideInset / 2,
-                          48,
+                          0,
                         ),
                       ),
                       style: editorStyle,
