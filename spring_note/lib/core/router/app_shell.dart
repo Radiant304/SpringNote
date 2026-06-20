@@ -9,6 +9,7 @@ import '../../features/settings/settings_page.dart';
 import '../../features/widget/desktop_status_widget.dart';
 import '../models/app_config.dart';
 import '../models/local_data_state.dart';
+import '../models/note_external_update.dart';
 import '../services/desktop_widget_controller.dart';
 import '../services/desktop_widget_window_bridge.dart';
 import '../services/level_progress_controller.dart';
@@ -39,6 +40,9 @@ class _AppShellState extends State<AppShell> {
       DesktopWidgetWindowBridge();
   late final LevelProgressController _levelProgressController =
       LevelProgressController()..attach(_localDataState);
+  late final ValueNotifier<NoteExternalUpdate?> _noteExternalUpdate =
+      ValueNotifier(null);
+  int _noteExternalUpdateRevision = 0;
 
   @override
   void initState() {
@@ -72,6 +76,7 @@ class _AppShellState extends State<AppShell> {
     _desktopWidgetController.removeListener(_syncDesktopWidgetWindow);
     _levelProgressController.removeListener(_handleLevelProgressChanged);
     unawaited(_desktopWidgetWindow.dispose());
+    _noteExternalUpdate.dispose();
     _desktopWidgetController.dispose();
     _levelProgressController.dispose();
     super.dispose();
@@ -96,6 +101,13 @@ class _AppShellState extends State<AppShell> {
       setState(() {});
     }
     _syncDesktopWidgetWindow();
+  }
+
+  void _notifyDailyNoteSaved(String path) {
+    _noteExternalUpdate.value = NoteExternalUpdate(
+      path: path,
+      revision: ++_noteExternalUpdateRevision,
+    );
   }
 
   void _syncDesktopWidgetWindow() {
@@ -147,8 +159,12 @@ class _AppShellState extends State<AppShell> {
                       localDataState: _localDataState,
                       desktopWidgetController: _desktopWidgetController,
                       levelProgressController: _levelProgressController,
+                      onDailyNoteSaved: _notifyDailyNoteSaved,
                     ),
-                    NotesPage(localDataState: _localDataState),
+                    NotesPage(
+                      localDataState: _localDataState,
+                      externalNoteUpdate: _noteExternalUpdate,
+                    ),
                     MemoryPage(localDataState: _localDataState),
                     SettingsPage(
                       localDataState: _localDataState,

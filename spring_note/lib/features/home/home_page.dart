@@ -24,6 +24,7 @@ class HomePage extends StatefulWidget {
     this.statsService = const StatsService(),
     this.desktopWidgetController,
     this.levelProgressController,
+    this.onDailyNoteSaved,
   });
 
   final LocalDataState localDataState;
@@ -34,6 +35,7 @@ class HomePage extends StatefulWidget {
   final StatsService statsService;
   final DesktopWidgetController? desktopWidgetController;
   final LevelProgressController? levelProgressController;
+  final ValueChanged<String>? onDailyNoteSaved;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -204,6 +206,7 @@ class _HomePageState extends State<HomePage> {
         note: structured,
         mergedMarkdown: aiMergedMarkdown,
       );
+      widget.onDailyNoteSaved?.call(savedPath);
       await widget.statsService.recordHomeGeneration(
         appDataDir: widget.localDataState.dataDirectory,
       );

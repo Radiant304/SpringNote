@@ -1,9 +1,11 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/models/local_data_state.dart';
+import '../../core/models/note_external_update.dart';
 import '../../core/models/note_file.dart';
 import '../../core/services/ai_client_service.dart';
 import '../../core/services/note_service.dart';
@@ -17,11 +19,13 @@ class NotesPage extends StatefulWidget {
     required this.localDataState,
     this.noteService = const NoteService(),
     this.aiClientService = const AiClientService(),
+    this.externalNoteUpdate,
   });
 
   final LocalDataState localDataState;
   final NoteService noteService;
   final AiClientService aiClientService;
+  final ValueListenable<NoteExternalUpdate?>? externalNoteUpdate;
 
   @override
   State<NotesPage> createState() => _NotesPageState();
@@ -54,11 +58,22 @@ class _NotesPageState extends State<NotesPage> {
     _editorFocusNode = FocusNode(onKeyEvent: _handleEditorKeyEvent);
     _editorController.addListener(_handleEditorChanged);
     _searchController.addListener(() => setState(() {}));
+    widget.externalNoteUpdate?.addListener(_handleExternalNoteUpdate);
     _loadNotes(kind: _kind);
   }
 
   @override
+  void didUpdateWidget(covariant NotesPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.externalNoteUpdate != oldWidget.externalNoteUpdate) {
+      oldWidget.externalNoteUpdate?.removeListener(_handleExternalNoteUpdate);
+      widget.externalNoteUpdate?.addListener(_handleExternalNoteUpdate);
+    }
+  }
+
+  @override
   void dispose() {
+    widget.externalNoteUpdate?.removeListener(_handleExternalNoteUpdate);
     _editorController
       ..removeListener(_handleEditorChanged)
       ..dispose();
@@ -94,6 +109,53 @@ class _NotesPageState extends State<NotesPage> {
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
+  }
+
+  void _handleExternalNoteUpdate() {
+    final update = widget.externalNoteUpdate?.value;
+    if (update == null) {
+      return;
+    }
+    unawaited(_refreshAfterExternalNoteUpdate(update));
+  }
+
+  Future<void> _refreshAfterExternalNoteUpdate(
+    NoteExternalUpdate update,
+  ) async {
+    if (_kind != NoteKind.daily) {
+      return;
+    }
+
+    final selected = _selectedNote;
+    final directory = _directoryFor(_kind);
+    final notes = await widget.noteService.listMarkdownFiles(
+      directoryPath: directory,
+      kind: _kind,
+    );
+
+    String? selectedContent;
+    if (selected != null && _samePath(selected.path, update.path)) {
+      selectedContent = await widget.noteService.readMarkdown(selected.path);
+    }
+
+    if (!mounted || _kind != NoteKind.daily) {
+      return;
+    }
+
+    setState(() {
+      _notes = notes;
+      if (selected != null) {
+        _selectedNote = notes.firstWhere(
+          (note) => _samePath(note.path, selected.path),
+          orElse: () => selected,
+        );
+      }
+      if (selectedContent != null &&
+          selectedContent != _editorController.text) {
+        _setEditorText(selectedContent, preserveSelection: true);
+        _statusText = '已同步';
+      }
+    });
   }
 
   Future<void> _loadNotes({
@@ -218,11 +280,14 @@ class _NotesPageState extends State<NotesPage> {
     });
   }
 
-  void _setEditorText(String value) {
+  void _setEditorText(String value, {bool preserveSelection = false}) {
+    final nextSelection = preserveSelection
+        ? _selectionClampedTo(value)
+        : TextSelection.collapsed(offset: value.length);
     _editorController
       ..removeListener(_handleEditorChanged)
       ..text = value
-      ..selection = TextSelection.collapsed(offset: value.length)
+      ..selection = nextSelection
       ..addListener(_handleEditorChanged);
     _lastEditorText = value;
     _lastEditorSelection = _editorController.selection;
@@ -232,6 +297,35 @@ class _NotesPageState extends State<NotesPage> {
     _predicting = false;
     _fimMessage = null;
     _editorController.clearFimPrediction();
+  }
+
+  TextSelection _selectionClampedTo(String text) {
+    final selection = _editorController.selection;
+    if (!selection.isValid) {
+      return TextSelection.collapsed(offset: text.length);
+    }
+    return TextSelection(
+      baseOffset: _clampOffset(selection.baseOffset, text.length),
+      extentOffset: _clampOffset(selection.extentOffset, text.length),
+      affinity: selection.affinity,
+      isDirectional: selection.isDirectional,
+    );
+  }
+
+  int _clampOffset(int offset, int length) {
+    if (offset < 0) {
+      return 0;
+    }
+    if (offset > length) {
+      return length;
+    }
+    return offset;
+  }
+
+  bool _samePath(String left, String right) {
+    final normalizedLeft = left.replaceAll('\\', '/').toLowerCase();
+    final normalizedRight = right.replaceAll('\\', '/').toLowerCase();
+    return normalizedLeft == normalizedRight;
   }
 
   void _invalidateFimPrediction({required bool scheduleNext}) {
