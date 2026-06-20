@@ -42,6 +42,7 @@ dependencies:
   gpt_markdown: ^1.1.7
   syntax_highlight: ^0.5.0
   window_manager: ^0.5.1
+  msix: ^3.17.0
 
 dependency_overrides:
   # syntax_highlight's CodeEditor depends on super_clipboard, which pulls in a
@@ -101,3 +102,9 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+msix_config:
+  display_name: SpringNote
+  publisher_display_name: Radiant303
+  identity_name: io.radiant303.springnote
+  msix_version: 1.0.0.1
+  logo_path: web/icons/icon-512.png
