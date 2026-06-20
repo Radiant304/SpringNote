@@ -10,9 +10,11 @@ import '../../features/widget/desktop_status_widget.dart';
 import '../models/app_config.dart';
 import '../models/local_data_state.dart';
 import '../models/note_external_update.dart';
+import '../models/note_file.dart';
 import '../services/desktop_widget_controller.dart';
 import '../services/desktop_widget_window_bridge.dart';
 import '../services/level_progress_controller.dart';
+import '../services/startup_report_generation_service.dart';
 import '../theme/app_theme.dart';
 
 enum AppSection { home, notes, memory, settings }
@@ -21,10 +23,13 @@ class AppShell extends StatefulWidget {
   const AppShell({
     super.key,
     required this.localDataState,
+    this.startupReportGenerationService =
+        const StartupReportGenerationService(),
     this.onConfigChanged,
   });
 
   final LocalDataState localDataState;
+  final StartupReportGenerationService startupReportGenerationService;
   final ValueChanged<AppConfig>? onConfigChanged;
 
   @override
@@ -57,6 +62,7 @@ class _AppShellState extends State<AppShell> {
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _syncDesktopWidgetWindow();
+      unawaited(_runStartupReportGeneration(_localDataState));
     });
   }
 
@@ -68,6 +74,7 @@ class _AppShellState extends State<AppShell> {
       _desktopWidgetController.attach(_localDataState);
       _levelProgressController.attach(_localDataState);
       _syncDesktopWidgetWindow();
+      unawaited(_runStartupReportGeneration(_localDataState));
     }
   }
 
@@ -103,11 +110,30 @@ class _AppShellState extends State<AppShell> {
     _syncDesktopWidgetWindow();
   }
 
-  void _notifyDailyNoteSaved(String path) {
+  void _notifyNoteSaved(NoteKind kind, String path) {
     _noteExternalUpdate.value = NoteExternalUpdate(
+      kind: kind,
       path: path,
       revision: ++_noteExternalUpdateRevision,
     );
+  }
+
+  Future<void> _runStartupReportGeneration(
+    LocalDataState localDataState,
+  ) async {
+    try {
+      final reports = await widget.startupReportGenerationService
+          .generateMissingReports(localDataState: localDataState);
+      if (!mounted ||
+          localDataState.dataDirectory != _localDataState.dataDirectory) {
+        return;
+      }
+      for (final report in reports) {
+        _notifyNoteSaved(report.kind, report.path);
+      }
+    } catch (_) {
+      // Startup report generation is opportunistic and must not block the app.
+    }
   }
 
   void _syncDesktopWidgetWindow() {
@@ -159,7 +185,8 @@ class _AppShellState extends State<AppShell> {
                       localDataState: _localDataState,
                       desktopWidgetController: _desktopWidgetController,
                       levelProgressController: _levelProgressController,
-                      onDailyNoteSaved: _notifyDailyNoteSaved,
+                      onDailyNoteSaved: (path) =>
+                          _notifyNoteSaved(NoteKind.daily, path),
                     ),
                     NotesPage(
                       localDataState: _localDataState,

@@ -122,7 +122,7 @@ class _NotesPageState extends State<NotesPage> {
   Future<void> _refreshAfterExternalNoteUpdate(
     NoteExternalUpdate update,
   ) async {
-    if (_kind != NoteKind.daily) {
+    if (_kind != update.kind) {
       return;
     }
 
@@ -138,7 +138,7 @@ class _NotesPageState extends State<NotesPage> {
       selectedContent = await widget.noteService.readMarkdown(selected.path);
     }
 
-    if (!mounted || _kind != NoteKind.daily) {
+    if (!mounted || _kind != update.kind) {
       return;
     }
 

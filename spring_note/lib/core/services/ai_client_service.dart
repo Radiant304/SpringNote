@@ -81,6 +81,67 @@ class AiClientService {
     return '${response.content.trimRight()}\n';
   }
 
+  Future<String?> generateWeeklyReport({
+    required String appDataDir,
+    required AppConfig config,
+    required String sourceMarkdown,
+    required String periodLabel,
+  }) {
+    return _generateReport(
+      appDataDir: appDataDir,
+      config: config,
+      sourceMarkdown: sourceMarkdown,
+      periodLabel: periodLabel,
+      monthly: false,
+    );
+  }
+
+  Future<String?> generateMonthlyReport({
+    required String appDataDir,
+    required AppConfig config,
+    required String sourceMarkdown,
+    required String periodLabel,
+  }) {
+    return _generateReport(
+      appDataDir: appDataDir,
+      config: config,
+      sourceMarkdown: sourceMarkdown,
+      periodLabel: periodLabel,
+      monthly: true,
+    );
+  }
+
+  Future<String?> _generateReport({
+    required String appDataDir,
+    required AppConfig config,
+    required String sourceMarkdown,
+    required String periodLabel,
+    required bool monthly,
+  }) async {
+    final selection = _selectModel(config, 'intelligentGenerationModel');
+    if (selection == null) {
+      return null;
+    }
+
+    final request = rust_ai.ReportRequest(
+      appDataDir: appDataDir,
+      provider: _toRustProvider(selection.provider),
+      model: _toRustModel(selection.model),
+      sourceMarkdown: sourceMarkdown,
+      periodLabel: periodLabel,
+      industry: config.industry,
+      apiLogEnabled: config.apiLogEnabled,
+    );
+    final response = monthly
+        ? await rust_api.generateMonthlyReport(request: request)
+        : await rust_api.generateWeeklyReport(request: request);
+    if (!response.ok || response.content.trim().isEmpty) {
+      return null;
+    }
+
+    return '${response.content.trimRight()}\n';
+  }
+
   Future<rust_ai.ProviderTestResult> testProviderConnection({
     required String appDataDir,
     required bool apiLogEnabled,

@@ -52,8 +52,7 @@ class NoteService {
     final date = now ?? DateTime.now();
     final name = switch (kind) {
       NoteKind.daily => _formatDate(date),
-      NoteKind.weekly =>
-        '${date.year}-W${_isoWeekNumber(date).toString().padLeft(2, '0')}',
+      NoteKind.weekly => _formatIsoWeek(date),
       NoteKind.monthly =>
         '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}',
     };
@@ -147,9 +146,21 @@ class NoteService {
   }
 
   int _isoWeekNumber(DateTime date) {
-    final normalized = DateTime.utc(date.year, date.month, date.day);
-    final thursday = normalized.add(Duration(days: 4 - normalized.weekday));
-    final firstThursday = DateTime.utc(thursday.year, 1, 4);
-    return 1 + thursday.difference(firstThursday).inDays ~/ 7;
+    final start = _startOfWeek(date);
+    final isoYear = start.add(const Duration(days: 3)).year;
+    final first = _startOfWeek(DateTime(isoYear, 1, 4));
+    return (start.difference(first).inDays ~/ 7) + 1;
+  }
+
+  String _formatIsoWeek(DateTime date) {
+    final start = _startOfWeek(date);
+    final isoYear = start.add(const Duration(days: 3)).year;
+    final week = _isoWeekNumber(date);
+    return '${isoYear.toString().padLeft(4, '0')}-W${week.toString().padLeft(2, '0')}';
+  }
+
+  DateTime _startOfWeek(DateTime date) {
+    final normalized = DateTime(date.year, date.month, date.day);
+    return normalized.subtract(Duration(days: normalized.weekday - 1));
   }
 }
