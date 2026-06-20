@@ -374,6 +374,10 @@ class _ProviderListItemState extends State<_ProviderListItem> {
         ? const Color(0xFFE2E2E2)
         : const Color(0xFFF5F5F5);
     final active = widget.selected || _hovered;
+    final contentColor = active ? AppTheme.text : const Color(0xFF6E6E6E);
+    final avatarBackgroundColor = active
+        ? const Color(0xFFDCDCDC)
+        : const Color(0xFFEDEDED);
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -388,47 +392,75 @@ class _ProviderListItemState extends State<_ProviderListItem> {
             children: [
               Positioned.fill(
                 child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 120),
+                  duration: const Duration(milliseconds: 240),
                   curve: Curves.easeOutCubic,
                   opacity: active ? 1 : 0,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: backgroundColor,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
+                  child: TweenAnimationBuilder<Color?>(
+                    tween: ColorTween(end: backgroundColor),
+                    duration: const Duration(milliseconds: 280),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, color, _) {
+                      return DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: color ?? backgroundColor,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),
               Positioned.fill(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      CircleAvatar(
-                        radius: 14,
-                        backgroundColor: const Color(0xFFEDEDED),
-                        child: Text(
-                          widget.provider.name.characters.first.toUpperCase(),
-                          style: const TextStyle(
-                            height: 1,
-                            fontWeight: FontWeight.w600,
+                child: TweenAnimationBuilder<Color?>(
+                  tween: ColorTween(end: contentColor),
+                  duration: const Duration(milliseconds: 280),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, color, _) {
+                    final animatedColor = color ?? contentColor;
+                    return TweenAnimationBuilder<Color?>(
+                      tween: ColorTween(end: avatarBackgroundColor),
+                      duration: const Duration(milliseconds: 280),
+                      curve: Curves.easeOutCubic,
+                      builder: (context, avatarColor, _) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              CircleAvatar(
+                                radius: 14,
+                                backgroundColor:
+                                    avatarColor ?? avatarBackgroundColor,
+                                child: Text(
+                                  widget.provider.name.characters.first
+                                      .toUpperCase(),
+                                  style: TextStyle(
+                                    color: animatedColor,
+                                    height: 1,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  widget.provider.name,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(
+                                        color: animatedColor,
+                                        height: 1.2,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                ),
+                              ),
+                              _StatusPill(enabled: widget.provider.enabled),
+                            ],
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          widget.provider.name,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(
-                            context,
-                          ).textTheme.bodyMedium?.copyWith(height: 1.2),
-                        ),
-                      ),
-                      _StatusPill(enabled: widget.provider.enabled),
-                    ],
-                  ),
+                        );
+                      },
+                    );
+                  },
                 ),
               ),
             ],
