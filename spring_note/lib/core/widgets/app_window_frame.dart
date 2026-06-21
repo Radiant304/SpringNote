@@ -107,7 +107,12 @@ class _AppWindowTitleBarState extends State<AppWindowTitleBar>
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const FlutterLogo(size: 17),
+                          Image.asset(
+                            'windows/runner/resources/index.png',
+                            width: 17,
+                            height: 17,
+                            filterQuality: FilterQuality.medium,
+                          ),
                           const SizedBox(width: 8),
                           Text('SpringNote', style: textStyle),
                         ],

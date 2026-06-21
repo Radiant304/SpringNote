@@ -3649,7 +3649,12 @@ class _AboutPanel extends StatelessWidget {
                 width: 48,
                 height: 48,
                 alignment: Alignment.center,
-                child: const FlutterLogo(size: 30),
+                child: Image.asset(
+                  'windows/runner/resources/index.png',
+                  width: 30,
+                  height: 30,
+                  filterQuality: FilterQuality.medium,
+                ),
               ),
               const SizedBox(width: 14),
               Column(

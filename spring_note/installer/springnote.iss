@@ -30,10 +30,9 @@ ArchitecturesAllowed=x64compatible
 ; the 64-bit view of the registry.
 ArchitecturesInstallIn64BitMode=x64compatible
 DisableProgramGroupPage=yes
-LicenseFile=C:\Users\hanbing\Desktop\txt\LICENSE.txt
 ; Uncomment the following line to run in non administrative install mode (install for current user only).
 ;PrivilegesRequired=lowest
-OutputDir=D:\GitHub\happywork\spring_note\build\windows\x64\runner\Release\data
+OutputDir=D:\GitHub\happywork\spring_note\build\windows\x64\runner\Release
 OutputBaseFilename=SpringNote-1.0.0-windows-x64-setup
 SolidCompression=yes
 WizardStyle=modern
@@ -42,7 +41,7 @@ WizardStyle=modern
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Files]
 Source: "D:\GitHub\happywork\spring_note\build\windows\x64\runner\Release\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
