@@ -1,13 +1,11 @@
-# SpringNote
+<h1 align="center">
+  <img src="./snapshots/logo.png" width="48" alt="SpringNote Logo" style="vertical-align: middle;">
+  SpringNote
+</h1>
+
+
 
 <div align="center">
-
-<br>
-
-<p align="center">
-  <img src="https://count.getloli.com/@SpringNote?name=SpringNote&theme=miku&padding=7&offset=0&align=center&scale=0.3&pixelated=1&darkmode=auto" alt="visitor count" />
-</p>
-<br>
 
 <div>
 <img src="https://img.shields.io/badge/Platform-Windows-blue?style=flat&color=76bad9">
@@ -37,11 +35,19 @@ SpringNote 旨在打造极致流畅的轻量工作台：
 6. **📈 统计面板**：查看记录、活跃度、模型调用和时间范围内的数据概览。
 7. **⚙️ 桌面端极致体验**：支持自定义 Windows 标题栏、托盘、开机自启动、全局快捷键、桌面状态组件和系统字体切换。
 
+
+
+
 ## ⭐ Star History
 
 > [!TIP]
 > 如果本项目对您的生活 / 工作产生了帮助，或者您关注本项目的未来发展，请给项目 Star，这是我们维护这个开源项目的动力 <3
+<br>
 
+<p align="center">
+  <img src="https://count.getloli.com/@SpringNote?name=SpringNote&theme=miku&padding=7&offset=0&align=center&scale=0.3&pixelated=1&darkmode=auto" alt="visitor count" />
+</p>
+<br>
 <div align="center">
 
 [![Star History Chart](https://api.star-history.com/chart?repos=Radiant303/SpringNote&type=date&legend=top-left)](https://www.star-history.com/?repos=Radiant303%2FSpringNote&type=date&legend=top-left)
