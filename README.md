@@ -1,11 +1,7 @@
-<div align="center">
+<h1 align="center">
   <img src="./snapshots/logo.png" width="48" alt="SpringNote Logo" style="vertical-align: -6px;">
-  <h1>SpringNote</h1>
-
-轻量、智能、可成长的桌面便签工具<br>
-基于Rust+Flutter构建
-
-</div>
+  SpringNote
+</h1>
 
 <div align="center">
 
